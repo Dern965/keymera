@@ -45,28 +45,6 @@ st.title('Sistema de Empeños y Ventas')
 menu = ['Listado de Empeños', 'Listado de Ventas', 'Añadir Empeño', 'Añadir Venta']
 eleccion = st.sidebar.selectbox('Selecciona una opción', menu)
 
-# CSS para la tabla
-st.markdown("""
-    <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid black;
-            padding: 8px;
-            text-align: left;
-            vertical-align: top;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        .actions {
-            text-align: center;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
 if eleccion == 'Listado de Empeños':
     st.subheader('Listado de Empeños')
     empenios = obtener_empenos()
@@ -77,7 +55,7 @@ if eleccion == 'Listado de Empeños':
             articulos = empeno['Articulos']
             cliente = empeno['Cliente']
             medidas = articulos['Descripciones']
-            st.write(f"<tr><td>{empeno['Num_Empenio']}</td><td>{empeno['Categoria']}</td><td>{empeno['Monto_inicial']}</td><td>{empeno['Cantidad acumulada']}</td><td>{empeno['Cantidad a prestar']}</td><td>{articulos['Nombre']}</td><td>{articulos['Precio']}</td><td>{medidas['Alto']}</td><td>{medidas['Ancho']}</td><td>{medidas['Profundo']}</td><td>{medidas['Rasgos']}</td><td>{medidas['Material']}</td><td>{cliente['Nombre']}</td><td>{cliente['Calle']}</td><td>{cliente['No_int']}</td><td>{cliente['No_ext']}</td><td>{cliente['CP']}</td><td>{cliente['Estado']}</td><td>{cliente['Municipio/Alcaldía']}</td><td>{cliente['Colonia']}</td><td>{cliente['Telefono']}</td><td>{cliente['Correo']}</td><td>", unsafe_allow_html=True)
+            st.write(f"<tr><td>{empeno['Num_Empenio']}</td><td>{empeno['Categoria']}</td><td>{empeno['Monto_inicial']}</td><td>{empeno['Cantidad_acumulada']}</td><td>{empeno['Cantidad_a_prestar']}</td><td>{articulos['Nombre']}</td><td>{articulos['Precio']}</td><td>{medidas['Alto']}</td><td>{medidas['Ancho']}</td><td>{medidas['Profundo']}</td><td>{medidas['Rasgos']}</td><td>{medidas['Material']}</td><td>{cliente['Nombre']}</td><td>{cliente['Calle']}</td><td>{cliente['No_int']}</td><td>{cliente['No_ext']}</td><td>{cliente['CP']}</td><td>{cliente['Estado']}</td><td>{cliente['Municipio_Alcaldia']}</td><td>{cliente['Colonia']}</td><td>{cliente['Telefono']}</td><td>{cliente['Correo']}</td><td>", unsafe_allow_html=True)
             if st.button('Modificar'):
                 with st.form(key=f'modificar_empeno_{empeno["Num_Empenio"]}_{empeno["Categoria"]}'):
                     nuevos_datos = {}
@@ -134,8 +112,8 @@ elif eleccion == 'Añadir Empeño':
             'Num_Empenio': int(num_empenio),
             'Categoria': categoria,
             'Monto_inicial': monto_inicial,
-            'Cantidad a prestar': cantidad_a_prestar,
-            'Cantidad acumulada': cantidad_acumulada,
+            'Cantidad_a_prestar': cantidad_a_prestar,
+            'Cantidad_acumulada': cantidad_acumulada,
             'Mensualidades': mensualidades,
             'Cliente': {
                 'Nombre': nombre_cliente,
@@ -144,7 +122,7 @@ elif eleccion == 'Añadir Empeño':
                 'No_ext': num_ext,
                 'CP': cp_cliente,
                 'Estado': estado_cliente,
-                'Municipio/Alcaldia': municipio_cliente,
+                'Municipio_Alcaldia': municipio_cliente,
                 'Colonia': colonia_cliente,
                 'Telefono': telefono_cliente,
                 'Correo': correo_cliente,
