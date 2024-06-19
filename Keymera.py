@@ -1,14 +1,13 @@
 import streamlit as st
 import boto3
-import pandas as pd
+from botocore.exceptions import ClientError
 from decimal import Decimal
 
 # Configurar el cliente de DynamoDB
 dynamodb = boto3.resource('dynamodb', endpoint_url='http://localhost:8000', region_name='us-east-1', aws_access_key_id='fakeMyKeyId', aws_secret_access_key='fakeSecretAccessKey')
-
+dynamodb_client = boto3.client('dynamodb', endpoint_url='http://localhost:8000', region_name='us-east-1', aws_access_key_id='fakeMyKeyId', aws_secret_access_key='fakeSecretAccessKey')
 
 # Tablas de DynamoDB
-
 empenios_table = dynamodb.Table('Empenios')
 ventas_table = dynamodb.Table('Ventas')
 
@@ -21,18 +20,63 @@ def obtener_empenos():
     response = empenios_table.scan()
     return response['Items']
 
-# Funcion para eliminar un empeño
+# Función para eliminar un empeño
 def eliminar_empeno(id_empeno, categoria):
     empenios_table.delete_item(Key={'Num_Empenio': id_empeno, 'Categoria': categoria})
 
-# Función para obtener todas las ventas
-def obtener_ventas():
-    response = ventas_table.scan()
-    return response['Items']
+# Función para crear la entrada de actualización de DynamoDB
+def create_update_item_input(num_empenio, categoria, nuevos_datos):
+    update_expression = "SET "
+    expression_attribute_names = {}
+    expression_attribute_values = {}
+
+    for k, v in nuevos_datos.items():
+        key_name = k.replace('.', '_')
+        update_expression += f"#{key_name} = :{key_name}, "
+        expression_attribute_names[f"#{key_name}"] = k
+        if isinstance(v, str):
+            expression_attribute_values[f":{key_name}"] = {'S': v}
+        elif isinstance(v, (int, float, Decimal)):
+            expression_attribute_values[f":{key_name}"] = {'N': str(v)}
+        elif isinstance(v, bool):
+            expression_attribute_values[f":{key_name}"] = {'BOOL': v}
+        elif isinstance(v, dict):
+            expression_attribute_values[f":{key_name}"] = {'M': v}
+    update_expression = update_expression.rstrip(", ")
+
+    return {
+        "TableName": "Empenios",
+        "Key": {
+            "Num_Empenio": {"N": str(num_empenio)},
+            "Categoria": {"S": categoria}
+        },
+        "UpdateExpression": update_expression,
+        "ExpressionAttributeNames": expression_attribute_names,
+        "ExpressionAttributeValues": expression_attribute_values
+    }
+
+# Función para ejecutar la actualización del ítem en DynamoDB
+def execute_update_item(dynamodb_client, input):
+    try:
+        dynamodb_client.update_item(**input)
+        print("Successfully updated item.")
+    except ClientError as error:
+        handle_error(error)
+    except BaseException as error:
+        print("Unknown error while updating item: " + str(error))
+
+def handle_error(error):
+    error_code = error.response['Error']['Code']
+    error_message = error.response['Error']['Message']
+    print(f'[{error_code}] Error message: {error_message}')
+
+def modificar_empeno(num_empenio, categoria, nuevos_datos):
+    update_item_input = create_update_item_input(num_empenio, categoria, nuevos_datos)
+    execute_update_item(dynamodb_client, update_item_input)
 
 st.title('Sistema de Empeños y Ventas')
 
-menu = ['Listado de Empeños', 'Listado de Ventas', 'Añadir Empeño', 'Añadir Venta']
+menu = ['Listado de Empeños', 'Añadir Empeño']
 eleccion = st.sidebar.selectbox('Selecciona una opción', menu)
 
 if eleccion == 'Listado de Empeños':
@@ -40,32 +84,55 @@ if eleccion == 'Listado de Empeños':
     empenios = obtener_empenos()
 
     if empenios:
-        st.write(f"<table><tr><th>Número de Empeño</th><th>Categoría</th><th>Monto Inicial</th><th>Cantidad Acumulada</th><th>Cantidad a prestar</th><th>Nombre del articulo</th><th>Precio</th><th>Alto (cm)</th><th>Ancho (cm)</th><th>Profundo (cm)</th><th>Detalles</th><th>Material</th><th>Nombre del cliente</th><th>Calle</th><th>No. Interior</th><th>No. Exterior</th><th>C.P.</th><th>Estado</th><th>Municipio o Alcaldia</th><th>Colonia</th><th>Telefono</th><th>Correo</th><th>Acciones</th></tr>", unsafe_allow_html=True)
         for empeno in empenios:
-            articulos = empeno['Articulos']
-            cliente = empeno['Cliente']
-            medidas = articulos['Descripciones']
-            st.write(f"<tr><td>{empeno['Num_Empenio']}</td><td>{empeno['Categoria']}</td><td>{empeno['Monto_inicial']}</td><td>{empeno['Cantidad_acumulada']}</td><td>{empeno['Cantidad_a_prestar']}</td><td>{articulos['Nombre']}</td><td>{articulos['Precio']}</td><td>{medidas['Alto']}</td><td>{medidas['Ancho']}</td><td>{medidas['Profundo']}</td><td>{medidas['Rasgos']}</td><td>{medidas['Material']}</td><td>{cliente['Nombre']}</td><td>{cliente['Calle']}</td><td>{cliente['No_int']}</td><td>{cliente['No_ext']}</td><td>{cliente['CP']}</td><td>{cliente['Estado']}</td><td>{cliente['Municipio_Alcaldia']}</td><td>{cliente['Colonia']}</td><td>{cliente['Telefono']}</td><td>{cliente['Correo']}</td><td>", unsafe_allow_html=True)
-            if st.button('Modificar'):
-                with st.form(key=f'modificar_empeno_{empeno["Num_Empenio"]}_{empeno["Categoria"]}'):
-                    nuevos_datos = {}
-                    for key, value in empeno.items():
-                        if key not in ["Num_Empenio", "Categoria"]:
-                            if isinstance(value, dict):
-                                for sub_key, sub_value in value.items():
-                                    nuevos_datos[f"{key}.{sub_key}"] = st.text_input(f"{key}.{sub_key}", value=sub_value)
-                            else:
-                                nuevos_datos[key] = st.text_input(key, value=value)
-                    if st.form_submit_button("Guardar cambios"):
-                        #modificar_empeno(empeno['Num_Empenio'], empeno['Categoria'], convert_to_decimal(nuevos_datos))
-                        st.success(f"Empeño {empeno['Num_Empenio']} - {empeno['Categoria']} modificado exitosamente.")
-                        st.rerun()
-            if st.button('Eliminar'):
-                eliminar_empeno(empeno['Num_Empenio'], empeno['Categoria'])
-                st.success(f"Empeño {empeno['Num_Empenio']} - {empeno['Categoria']} eliminado exitosamente.")
-                st.experimental_rerun()
-            st.write("</td></tr>", unsafe_allow_html=True)
-        st.write("</table>", unsafe_allow_html=True)
+            with st.expander(f"Empeño {empeno['Num_Empenio']} - {empeno['Categoria']}"):
+                articulos = empeno['Articulos']
+                cliente = empeno['Cliente']
+                medidas = articulos['Descripciones']
+                st.write(f"**Número de Empeño:** {empeno['Num_Empenio']}")
+                st.write(f"**Categoría:** {empeno['Categoria']}")
+                st.write(f"**Monto Inicial:** {empeno['Monto_inicial']}")
+                st.write(f"**Cantidad Acumulada:** {empeno['Cantidad_acumulada']}")
+                st.write(f"**Cantidad a Prestar:** {empeno['Cantidad_a_prestar']}")
+                st.write(f"**Mensualidades:** {empeno['Mensualidades']}")
+                st.write(f"**Nombre del Artículo:** {articulos['Nombre']}")
+                st.write(f"**Precio:** {articulos['Precio']}")
+                st.write(f"**Alto (cm):** {medidas['Alto']}")
+                st.write(f"**Ancho (cm):** {medidas['Ancho']}")
+                st.write(f"**Profundo (cm):** {medidas['Profundo']}")
+                st.write(f"**Material:** {medidas['Material']}")
+                st.write(f"**Rasgos:** {medidas['Rasgos']}")
+                st.write(f"**Tipo de Transacción:** {'Empeño' if articulos['Tipo_transaccion'] else 'Venta'}")
+                st.write(f"**Fecha de Empeño:** {empeno['Fecha_empenio']}")
+                st.write(f"**Nombre del Cliente:** {cliente['Nombre']}")
+                st.write(f"**Calle:** {cliente['Calle']}")
+                st.write(f"**No. Interior:** {cliente['No_int']}")
+                st.write(f"**No. Exterior:** {cliente['No_ext']}")
+                st.write(f"**C.P.:** {cliente['CP']}")
+                st.write(f"**Estado:** {cliente['Estado']}")
+                st.write(f"**Municipio o Alcaldía:** {cliente['Municipio_Alcaldia']}")
+                st.write(f"**Colonia:** {cliente['Colonia']}")
+                st.write(f"**Teléfono:** {cliente['Telefono']}")
+                st.write(f"**Correo:** {cliente['Correo']}")
+
+                if st.button(f'Modificar {empeno["Num_Empenio"]}'):
+                    with st.form(key=f'modificar_empeno_{empeno["Num_Empenio"]}_{empeno["Categoria"]}'):
+                        nuevos_datos = {}
+                        for key, value in empeno.items():
+                            if key not in ["Num_Empenio", "Categoria"]:
+                                if isinstance(value, dict):
+                                    for sub_key, sub_value in value.items():
+                                        nuevos_datos[f"{key}.{sub_key}"] = st.text_input(f"{key}.{sub_key}", value=sub_value)
+                                else:
+                                    nuevos_datos[key] = st.text_input(key, value=value)
+                        if st.form_submit_button("Guardar cambios"):
+                            modificar_empeno(empeno['Num_Empenio'], empeno['Categoria'], nuevos_datos)
+                            st.success(f"Empeño {empeno['Num_Empenio']} - {empeno['Categoria']} modificado exitosamente.")
+                            st.rerun()
+                if st.button(f'Eliminar {empeno["Num_Empenio"]}'):
+                    eliminar_empeno(empeno['Num_Empenio'], empeno['Categoria'])
+                    st.success(f"Empeño {empeno['Num_Empenio']} - {empeno['Categoria']} eliminado exitosamente.")
+                    st.rerun()
     else:
         st.write("No hay empeños disponibles.")
 
@@ -97,6 +164,11 @@ elif eleccion == 'Añadir Empeño':
     material_articulo = st.text_input('Material del Artículo')
     rasgos_articulo = st.text_input('Rasgos del Artículo')
 
+    menu2 = ['Venta', 'Empeño']  # False = Venta, True = Empeño
+    st.write('Selecciona si es un artículo de empeño o venta')
+    eleccion2 = st.selectbox('Selecciona una opción', menu2)
+    opc = eleccion2 == 'Empeño'
+
     if st.button('Añadir Empeño'):
         nuevo_empeno = {
             'Num_Empenio': int(num_empenio),
@@ -105,6 +177,7 @@ elif eleccion == 'Añadir Empeño':
             'Cantidad_a_prestar': cantidad_a_prestar,
             'Cantidad_acumulada': cantidad_acumulada,
             'Mensualidades': mensualidades,
+            'Fecha_empenio': fecha_empenio,
             'Cliente': {
                 'Nombre': nombre_cliente,
                 'Calle': calle_cliente,
@@ -127,7 +200,8 @@ elif eleccion == 'Añadir Empeño':
                     'Profundo': profundo_articulo,
                     'Material': material_articulo,
                     'Rasgos': rasgos_articulo
-                }
+                },
+                'Tipo_transaccion': opc
             }
         }
 
