@@ -30,16 +30,6 @@ def obtener_ventas():
     response = ventas_table.scan()
     return response['Items']
 
-# Funcion para convertir a decimal
-def convert_to_decimal(data):
-    if isinstance(data, list):
-        return [convert_to_decimal(i) for i in data]
-    elif isinstance(data, dict):
-        return {k: convert_to_decimal(v) for k, v in data.items()}
-    elif isinstance(data, float):
-        return Decimal(str(data))
-    return data
-
 st.title('Sistema de Empeños y Ventas')
 
 menu = ['Listado de Empeños', 'Listado de Ventas', 'Añadir Empeño', 'Añadir Venta']
@@ -69,7 +59,7 @@ if eleccion == 'Listado de Empeños':
                     if st.form_submit_button("Guardar cambios"):
                         #modificar_empeno(empeno['Num_Empenio'], empeno['Categoria'], convert_to_decimal(nuevos_datos))
                         st.success(f"Empeño {empeno['Num_Empenio']} - {empeno['Categoria']} modificado exitosamente.")
-                        st.experimental_rerun()
+                        st.rerun()
             if st.button('Eliminar'):
                 eliminar_empeno(empeno['Num_Empenio'], empeno['Categoria'])
                 st.success(f"Empeño {empeno['Num_Empenio']} - {empeno['Categoria']} eliminado exitosamente.")
