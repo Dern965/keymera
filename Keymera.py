@@ -1,11 +1,9 @@
 import streamlit as st
 import boto3
 from botocore.exceptions import ClientError
-from decimal import Decimal
 
 # Configurar el cliente de DynamoDB
 dynamodb = boto3.resource('dynamodb', endpoint_url='http://localhost:8000', region_name='us-east-1', aws_access_key_id='fakeMyKeyId', aws_secret_access_key='fakeSecretAccessKey')
-dynamodb_client = boto3.client('dynamodb', endpoint_url='http://localhost:8000', region_name='us-east-1', aws_access_key_id='fakeMyKeyId', aws_secret_access_key='fakeSecretAccessKey')
 
 # Tablas de DynamoDB
 empenios_table = dynamodb.Table('Empenios')
@@ -24,55 +22,12 @@ def obtener_empenos():
 def eliminar_empeno(id_empeno, categoria):
     empenios_table.delete_item(Key={'Num_Empenio': id_empeno, 'Categoria': categoria})
 
-# Función para crear la entrada de actualización de DynamoDB
-def create_update_item_input(num_empenio, categoria, nuevos_datos):
-    update_expression = "SET "
-    expression_attribute_names = {}
-    expression_attribute_values = {}
-
-    for k, v in nuevos_datos.items():
-        key_name = k.replace('.', '_')
-        update_expression += f"#{key_name} = :{key_name}, "
-        expression_attribute_names[f"#{key_name}"] = k
-        if isinstance(v, str):
-            expression_attribute_values[f":{key_name}"] = {'S': v}
-        elif isinstance(v, (int, float, Decimal)):
-            expression_attribute_values[f":{key_name}"] = {'N': str(v)}
-        elif isinstance(v, bool):
-            expression_attribute_values[f":{key_name}"] = {'BOOL': v}
-        elif isinstance(v, dict):
-            expression_attribute_values[f":{key_name}"] = {'M': v}
-    update_expression = update_expression.rstrip(", ")
-
-    return {
-        "TableName": "Empenios",
-        "Key": {
-            "Num_Empenio": {"N": str(num_empenio)},
-            "Categoria": {"S": categoria}
-        },
-        "UpdateExpression": update_expression,
-        "ExpressionAttributeNames": expression_attribute_names,
-        "ExpressionAttributeValues": expression_attribute_values
-    }
-
-# Función para ejecutar la actualización del ítem en DynamoDB
-def execute_update_item(dynamodb_client, input):
-    try:
-        dynamodb_client.update_item(**input)
-        print("Successfully updated item.")
-    except ClientError as error:
-        handle_error(error)
-    except BaseException as error:
-        print("Unknown error while updating item: " + str(error))
-
-def handle_error(error):
-    error_code = error.response['Error']['Code']
-    error_message = error.response['Error']['Message']
-    print(f'[{error_code}] Error message: {error_message}')
-
+# Función para modificar un empeño
 def modificar_empeno(num_empenio, categoria, nuevos_datos):
-    update_item_input = create_update_item_input(num_empenio, categoria, nuevos_datos)
-    execute_update_item(dynamodb_client, update_item_input)
+    nuevos_datos['Num_Empenio'] = num_empenio
+    nuevos_datos['Categoria'] = categoria
+    agregar_empeno(nuevos_datos)
+    eliminar_empeno(num_empenio, categoria)
 
 st.title('Sistema de Empeños y Ventas')
 
@@ -121,8 +76,9 @@ if eleccion == 'Listado de Empeños':
                         for key, value in empeno.items():
                             if key not in ["Num_Empenio", "Categoria"]:
                                 if isinstance(value, dict):
+                                    nuevos_datos[key] = {}
                                     for sub_key, sub_value in value.items():
-                                        nuevos_datos[f"{key}.{sub_key}"] = st.text_input(f"{key}.{sub_key}", value=sub_value)
+                                        nuevos_datos[key][sub_key] = st.text_input(f"{key}.{sub_key}", value=sub_value)
                                 else:
                                     nuevos_datos[key] = st.text_input(key, value=value)
                         if st.form_submit_button("Guardar cambios"):
