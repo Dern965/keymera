@@ -36,37 +36,3 @@ try:
     print("Tabla 'Empenios' creada.")
 except dynamodb.meta.client.exceptions.ResourceInUseException:
     print("La tabla 'Empenios' ya existe.")
-
-# Crear tabla Ventas
-try:
-    ventas_table = dynamodb.create_table(
-        TableName='Ventas',
-        KeySchema=[
-            {
-                'AttributeName': 'Num_Venta',
-                'KeyType': 'HASH'
-            },
-            {
-                'AttributeName': 'Fecha_venta',
-                'KeyType': 'RANGE'  # Clave de ordenamiento
-            }
-        ],
-        AttributeDefinitions=[
-            {
-                'AttributeName': 'Num_Venta',
-                'AttributeType': 'N'
-            },
-            {
-                'AttributeName': 'Fecha_venta',
-                'AttributeType': 'S'
-            }
-        ],
-        ProvisionedThroughput={
-            'ReadCapacityUnits': 5,
-            'WriteCapacityUnits': 5
-        }
-    )
-    ventas_table.wait_until_exists()
-    print("Tabla 'Ventas' creada.")
-except dynamodb.meta.client.exceptions.ResourceInUseException:
-    print("La tabla 'Ventas' ya existe.")

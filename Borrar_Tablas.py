@@ -4,7 +4,7 @@ import boto3
 dynamodb_client = boto3.client('dynamodb', endpoint_url='http://localhost:8000', region_name='us-east-1', aws_access_key_id='fakeMyKeyId', aws_secret_access_key='fakeSecretAccessKey')
 
 # Nombre de la tabla a borrar
-table_name = 'Empenios'
+table_name = 'Ventas'
 
 # Borrar la tabla usando delete_table
 try:
