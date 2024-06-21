@@ -3,6 +3,7 @@ import boto3
 from botocore.exceptions import ClientError
 from streamlit_option_menu import option_menu
 import pandas as pd
+from collections import defaultdict
 
 #Configuración de DynamoDB local
 dynamodb_r = boto3.resource('dynamodb', endpoint_url='http://localhost:8000', region_name='us-east-1', aws_access_key_id='fakeMyKeyId', aws_secret_access_key='fakeSecretAccessKey')
@@ -394,7 +395,87 @@ if selected_option == "Consultas relevantes":
     """
     resultado_3 = ejecutar_consulta(consulta_3)
     if resultado_3:
+        # Procesar los datos para una mejor visualización
+        processed_data = []
+        for item in resultado_3:
+            articulo = item['Articulo']['M']
+            descripciones = articulo['Descripciones']['M']
+            processed_data.append({
+                'Nombre': articulo['Nombre']['S'],
+                'Precio': articulo['Precio']['N'],
+                'Ancho': descripciones['Ancho']['N'],
+                'Alto': descripciones['Alto']['N'],
+                'Profundidad': descripciones['Profundidad']['N'],
+                'Peso': descripciones['Peso']['N'],
+                'Material': descripciones['Material']['S'],
+                'Rasgos': descripciones['Rasgos']['S'],
+                'Cantidad_acumulada': item['Cantidad_acumulada']['N']
+            })
+        df3 = pd.DataFrame(processed_data)
         st.write("Elementos empeñados que aún no han sido vendidos:")
-        st.dataframe(pd.DataFrame(resultado_3))
+        st.dataframe(df3)
     else:
         st.write("No se encontraron resultados para la consulta 3.")
+
+    # Obtener clientes con transacciones antes de una fecha específica
+    consulta_4_clientes = """
+    SELECT Cliente.Nombre
+    FROM Transacciones
+    WHERE Fecha_transaccion < '2023-08-01'
+    """
+    resultado_4_clientes = ejecutar_consulta(consulta_4_clientes)
+
+    if resultado_4_clientes:
+        # Asegurarse de que 'Cliente' está presente en los elementos
+        clientes_anteriores = {item['Cliente']['M']['Nombre']['S'] for item in resultado_4_clientes if 'Cliente' in item}
+
+        # Filtrar transacciones en el último mes para clientes nuevos
+        consulta_4 = """
+        SELECT *
+        FROM Transacciones
+        WHERE Fecha_transaccion >= '2023-08-01' AND Fecha_transaccion <= '2023-08-31'
+        """
+        resultado_4 = ejecutar_consulta(consulta_4)
+        if resultado_4:
+            clientes_nuevos = [item for item in resultado_4 if 'Cliente' in item and item['Cliente']['M']['Nombre']['S'] not in clientes_anteriores]
+
+            if clientes_nuevos:
+                df4 = pd.DataFrame([{
+                    'Num_Transaccion': item['Num_Transaccion']['N'],
+                    'Categoria': item['Categoria']['S'],
+                    'Nombre Cliente': item['Cliente']['M']['Nombre']['S'],
+                    'Fecha_transaccion': item['Fecha_transaccion']['S']
+                } for item in clientes_nuevos])
+                st.write("Empeños realizados por clientes nuevos en agosto de 2023:")
+                st.dataframe(df4)
+            else:
+                print("No se encontraron resultados para la consulta 4.")
+        else:
+            print("No se encontraron resultados para la consulta 4.")
+    else:
+        print("No se encontraron clientes anteriores para la consulta 4.")
+
+    # Obtener todas las transacciones en el año específico
+    consulta_5 = """
+    SELECT *
+    FROM Transacciones
+    WHERE Fecha_transaccion >= '2023-01-01' AND Fecha_transaccion <= '2023-12-31'
+    """
+
+    resultado_5 = ejecutar_consulta(consulta_5)
+
+    if resultado_5:
+        # Procesar los datos para agrupar y contar las transacciones por cliente
+        transacciones_por_cliente = defaultdict(int)
+        for item in resultado_5:
+            cliente = item['Cliente']['M']['Nombre']['S']
+            transacciones_por_cliente[cliente] += 1
+
+        # Convertir los resultados a un DataFrame y ordenar
+        df5 = pd.DataFrame(list(transacciones_por_cliente.items()), columns=['Nombre', 'TotalTransacciones'])
+        df5 = df5.sort_values(by='TotalTransacciones', ascending=False).reset_index(drop=True)
+        
+        st.write("Clientes con más transacciones en 2023:")
+        st.dataframe(df5)
+    else:
+        print("No se encontraron resultados para la consulta 5.")
