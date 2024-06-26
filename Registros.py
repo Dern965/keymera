@@ -344,12 +344,8 @@ transacciones = [
         "Monto_inicial": Decimal('250'),
         "Mensualidades": Decimal('6'),
         "Fecha_transaccion": "2023-05-20"
-    },
-    # Continúa con más registros hasta completar los 50
+    }
 ]
-
-# Añade el resto de registros de manera similar, cambiando los datos para completar los 50 registros.
-
 
 for transaccion in transacciones:
     table.put_item(Item=transaccion)
