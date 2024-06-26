@@ -3,13 +3,13 @@ import boto3
 # Configuración de DynamoDB local
 dynamodb = boto3.resource('dynamodb', endpoint_url='http://localhost:8000', region_name='us-east-1', aws_access_key_id='fakeMyKeyId', aws_secret_access_key='fakeSecretAccessKey')
 
-# Crear tabla Empenos
+# Crear tabla Transacciones
 try:
     empenos_table = dynamodb.create_table(
-        TableName='Empenios',
+        TableName='Transacciones',
         KeySchema=[
             {
-                'AttributeName': 'Num_Empenio',
+                'AttributeName': 'Num_Transaccion',
                 'KeyType': 'HASH'
             },
             {
@@ -19,7 +19,7 @@ try:
         ],
         AttributeDefinitions=[
             {
-                'AttributeName': 'Num_Empenio',
+                'AttributeName': 'Num_Transaccion',
                 'AttributeType': 'N'
             },
             {
@@ -33,6 +33,6 @@ try:
         }
     )
     empenos_table.wait_until_exists()
-    print("Tabla 'Empenios' creada.")
+    print("Tabla 'Transacciones' creada.")
 except dynamodb.meta.client.exceptions.ResourceInUseException:
-    print("La tabla 'Empenios' ya existe.")
+    print("La tabla 'Transacciones' ya existe.")
